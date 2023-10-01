@@ -1,10 +1,33 @@
+import { type Transaction } from "@prisma/client";
 import React, { useState } from "react";
 import { api } from "~/utils/api";
-import { useQueryClient } from "@tanstack/react-query";
 
 export default function AddTransaction() {
   const [isDebit, setIsDebit] = useState(false);
-  const addTransaction = api.transaction.post.useMutation();
+  const utils = api.useContext();
+
+  const addTransaction = api.transaction.post.useMutation({
+    async onMutate(newTransaction) {
+      await utils.transaction.getAll.cancel();
+
+      const prevData = utils.transaction.getAll.getData();
+
+      utils.transaction.getAll.setData(
+        undefined,
+        (old) => [...(old ?? []), newTransaction] as Transaction[],
+      );
+
+      return { prevData };
+    },
+    onError(err, newPost, ctx) {
+      // If the mutation fails, use the context-value from onMutate
+      utils.transaction.getAll.setData(undefined, ctx?.prevData);
+    },
+    async onSettled() {
+      // Sync with server once mutation has settled
+      await utils.transaction.getAll.invalidate();
+    },
+  });
 
   const toggleIsDebit = () => setIsDebit(!isDebit);
 
@@ -117,20 +140,11 @@ export default function AddTransaction() {
       <button
         className="btn px-8"
         onClick={() => {
-          addTransaction.mutate(
-            {
-              name: transactionName,
-              category: selectOptions[selectOptionsIndex - 1] ?? "Other",
-              value: currencyAmount * (isDebit ? 1 : -1),
-            },
-            {
-              onSuccess: () => {
-                setTransactionName("");
-                setCurrencyAmount(0);
-                setSelectedOptionsIndex(0);
-              },
-            },
-          );
+          addTransaction.mutate({
+            name: transactionName,
+            category: selectOptions[selectOptionsIndex - 1] ?? "Other",
+            value: currencyAmount * (isDebit ? 1 : -1),
+          });
         }}
       >
         Add
