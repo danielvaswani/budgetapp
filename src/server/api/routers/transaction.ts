@@ -1,3 +1,4 @@
+import { Decimal } from "@prisma/client/runtime/library";
 import { z } from "zod";
 
 import {
@@ -21,6 +22,27 @@ export const transactionRouter = createTRPCRouter({
                     category: input.category,
                     userId: ctx.session?.user?.id,
                 },
+            });
+        }
+        ),
+    update: protectedProcedure
+        .input(z.object({ id: z.number(), value: z.number(), name: z.string(), category: z.string() }))
+        .mutation(({ input, ctx }) => {
+            return ctx.db.transaction.update({
+                where: { id: input.id },
+                data: {
+                    value: input.value,
+                    name: input.name,
+                    category: input.category,
+                },
+            });
+        }
+        ),
+    delete: protectedProcedure
+        .input(z.object({ id: z.number() }))
+        .mutation(({ input, ctx }) => {
+            return ctx.db.transaction.delete({
+                where: { id: input.id },
             });
         }
         ),

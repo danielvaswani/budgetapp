@@ -19,7 +19,11 @@ export default function Home() {
       category: transaction.category,
       value: Number(transaction.value),
     })) ?? [];
-  pieData = [...pieData, { category: "Remaining", value: balance }]
+
+  pieData = [
+    ...pieData,
+    { category: balance! < 0 ? "Debt" : "Remaining", value: balance },
+  ]
     .filter((t) => t.category !== "Income")
     .map((t) => ({ category: t.category, value: Math.abs(t.value!) }));
 
@@ -32,18 +36,32 @@ export default function Home() {
       </Head>
       <main className=" flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-[#2e026d] to-[#15162c]">
         <PieChart width={500} height={500} transactions={pieData} />
-        <div className="container flex flex-col items-center justify-center gap-12 px-4 py-16 ">
+        <div className="container flex flex-col items-center justify-center gap-3 px-4 py-16 ">
           <div className="text-5xl">Your Balance</div>
           <div className="text-4xl">€{balance?.toFixed(2)}</div>
+          { balance! < 0 && <div className="text-sm">Total Income: €{
+            transactions.data
+            ?.filter((t) => t.category === "Income")
+            .reduce(
+              (acc, transaction) => acc + Number(transaction.value),
+              0,
+            )?.toFixed(2)
+          }</div>}
 
           <AddTransaction></AddTransaction>
-          {transactions.data?.map((transaction) => {
-            return (
-              <div className="w-full" key={transaction.id}>
-                <TransactionCard transaction={transaction}></TransactionCard>
-              </div>
-            );
-          })}
+          {transactions.data
+            ?.sort(
+              (a, b) =>
+                new Date(b.createdAt).getTime() -
+                new Date(a.createdAt).getTime(),
+            )
+            .map((transaction) => {
+              return (
+                <div className="w-full" key={transaction.id}>
+                  <TransactionCard transaction={transaction}></TransactionCard>
+                </div>
+              );
+            })}
 
           <AuthShowcase />
         </div>
