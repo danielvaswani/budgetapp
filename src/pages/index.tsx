@@ -1,43 +1,27 @@
-import { signIn, signOut, useSession } from "next-auth/react";
 import Head from "next/head";
-import { useState, useRef } from "react";
+import AddTransaction from "~/components/AddTransaction";
+import AuthShowcase from "~/components/AuthShowcase";
+import PieChart from "~/components/PieChart";
+import TransactionCard from "~/components/TransactionCard";
 
 import { api } from "~/utils/api";
 
 export default function Home() {
-  const hello = api.example.hello.useQuery({ text: "from tRPC" });
-  const [isDebit, setIsDebit] = useState(false);
+  const transactions = api.transaction.getAll.useQuery();
 
-  const toggleIsDebit = () => setIsDebit(!isDebit);
+  const balance = transactions.data?.reduce(
+    (acc, transaction) => acc + Number(transaction.value),
+    0,
+  );
 
-  const [selectOptions, setSelectedOptions] = useState([
-    "Food and Drink",
-    "Rent",
-    "Transportation",
-    "Entertainment",
-    "Income",
-    "Other",
-  ]);
-  const [selectedOptionIndex, setSelectedOptionIndex] = useState(0);
-
-  const [currencyAmount, setCurrencyAmount] = useState(0);
-  const [isEditingCurrencyAmount, setIsEditingCurrencyAmount] = useState(false);
-
-  const changeCategory = (e: { target: HTMLSelectElement }) => {
-    const selectedIndex = e.target.options.selectedIndex;
-    if (selectedIndex === selectOptions.length + 1) {
-      const newCategory = prompt("Enter a new category");
-      if (newCategory) {
-        setSelectedOptions([...selectOptions, newCategory]); // TODO Save to user categories
-      }
-    }
-    if (e.target.options[selectedIndex]!.text === "Income") {
-      setIsDebit(true);
-    } else {
-      setIsDebit(false);
-    }
-    setSelectedOptionIndex(selectedIndex);
-  };
+  let pieData =
+    transactions.data?.map((transaction) => ({
+      category: transaction.category,
+      value: Number(transaction.value),
+    })) ?? [];
+  pieData = [...pieData, { category: "Remaining", value: balance }]
+    .filter((t) => t.category !== "Income")
+    .map((t) => ({ category: t.category, value: Math.abs(t.value!) }));
 
   return (
     <>
@@ -47,139 +31,23 @@ export default function Home() {
         <link rel="icon" href="/favicon.ico" />
       </Head>
       <main className=" flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-[#2e026d] to-[#15162c]">
+        <PieChart width={500} height={500} transactions={pieData} />
         <div className="container flex flex-col items-center justify-center gap-12 px-4 py-16 ">
-          <div className="flex"></div>
+          <div className="text-5xl">Your Balance</div>
+          <div className="text-4xl">€{balance?.toFixed(2)}</div>
 
-          <div className="flex flex-col gap-4 rounded-xl bg-white/10 p-4 text-white hover:bg-white/20">
-            <div className="flex">
-              <input
-                type="text"
-                placeholder={`What did you ${isDebit ? "get" : "buy"}?`}
-                className="input"
-              />
-              <div className="divider divider-horizontal" />
-              <select
-                className="select"
-                id="select-category"
-                onChange={changeCategory}
-              >
-                <option disabled selected>
-                  Category
-                </option>
-                {selectOptions.map((option) => (
-                  <option key={option}>{option}</option>
-                ))}
-                {/* Add new category option */}
-                <option>+ New category</option>
-              </select>
-            </div>
-            <div className="flex justify-between">
-              <div>
-                <label className="swap swap-rotate mr-2 h-full rounded border bg-black bg-opacity-30 px-[0.85rem]">
-                  {/* this hidden checkbox controls the state */}
-                  <input
-                    type="checkbox"
-                    checked={isDebit}
-                    onClick={toggleIsDebit}
-                  />
-
-                  {/* minus icon */}
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    strokeWidth={1.5}
-                    stroke="currentColor"
-                    className="swap-on h-4 w-4"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M12 4.5v15m7.5-7.5h-15"
-                    />
-                  </svg>
-
-                  {/* plus icon */}
-
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    strokeWidth={1.5}
-                    stroke="currentColor"
-                    className="swap-off h-4 w-4"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M19.5 12h-15"
-                    />
-                  </svg>
-                </label>
-                <input
-                  type="number"
-                  min="0.00"
-                  step="any"
-                  className="input w-48"
-                    onChange={(e: {target:HTMLInputElement}) => setCurrencyAmount(parseFloat(e.target.value))}
-                  onFocus={() => setIsEditingCurrencyAmount(true)}
-                  onBlur={() => {
-                    setIsEditingCurrencyAmount(false);
-                    setCurrencyAmount(
-                      Number(Number(currencyAmount).toFixed(2)),
-                    );
-                  }}
-                  value={
-                    !isEditingCurrencyAmount
-                      ? Number(currencyAmount).toFixed(2)
-                      : currencyAmount
-                  }
-                />
+          <AddTransaction></AddTransaction>
+          {transactions.data?.map((transaction) => {
+            return (
+              <div className="w-full" key={transaction.id}>
+                <TransactionCard transaction={transaction}></TransactionCard>
               </div>
-              {/* {selectedOptionIndex} */}
-              <button className="btn px-8">Add</button>
-            </div>
-          </div>
-          <div className="flex w-full max-w-lg flex-col gap-4 rounded-xl bg-white/10 p-4 text-white hover:bg-white/20">
-            <div className="flex items-center justify-between">
-              <h3 className="text-2xl">Light beer</h3>
-              <div className="text-lg text-purple-300">Food and drink</div>
-              <h5 className="font-thin italic">$5.59</h5>
-            </div>
-          </div>
+            );
+          })}
 
-          <div className="flex flex-col items-center gap-2">
-            <p className="text-2xl text-white">
-              {hello.data ? hello.data.greeting : "Loading tRPC query..."}
-            </p>
-            <AuthShowcase />
-          </div>
+          <AuthShowcase />
         </div>
       </main>
     </>
-  );
-}
-
-function AuthShowcase() {
-  const { data: sessionData } = useSession();
-
-  const { data: secretMessage } = api.example.getSecretMessage.useQuery(
-    undefined, // no input
-    { enabled: sessionData?.user !== undefined },
-  );
-
-  return (
-    <div className="flex flex-col items-center justify-center gap-4">
-      <p className="text-center text-2xl text-white">
-        {sessionData && <span>Logged in as {sessionData.user?.name}</span>}
-        {secretMessage && <span> - {secretMessage}</span>}
-      </p>
-      <button
-        className="rounded-full bg-white/10 px-10 py-3 font-semibold text-white no-underline transition hover:bg-white/20"
-        onClick={sessionData ? () => void signOut() : () => void signIn()}
-      >
-        {sessionData ? "Sign out" : "Sign in"}
-      </button>
-    </div>
   );
 }
